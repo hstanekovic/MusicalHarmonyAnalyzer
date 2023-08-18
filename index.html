@@ -478,7 +478,7 @@ class MusicalKeyOrChord {
             DominantSeventhChord: 9, MajorSeventhChord: 10, MinorSeventhChord: 11, DiminishedSeventhChord: 12, HalfDiminishedSeventhChord: 13,
             AugmentedSeventhChord: 14, MinorMajorSeventhChord: 15, AugmentedMajorSeventhChord: 16,
             DominantNinthChord: 17, DominantMinorNinthChord: 18, MajorNinthChord: 19, MinorNinthChord: 20,
-            DiminishedTriadChordLowered3rd: 21, DiminishedSeventhChordLowered3rd: 22, DominantSeventhChordLowered5th: 23
+            EnhDominantSeventhNo5Chord: 21, EnhDominantSeventhChord: 22, DominantSeventhLowered5thChord: 23
         }
     }
 
@@ -501,15 +501,14 @@ class MusicalKeyOrChord {
 
     GetInversion(bassNote) {
         let positions = ["root position", "1st inversion", "2nd inversion", "3rd inversion"];
-        let inversion = bassNote != null ? this.NoteNames.findIndex(nn => nn.IsEqual(bassNote)) : 0;
-        if (inversion < 0) return this;
+        let inversion = bassNote != null ? this.NoteNames.findIndex(nn => nn.PitchClass == bassNote.PitchClass): 0;
         let noteNames = this.NoteNames.slice(inversion).concat(this.NoteNames.slice(0, inversion));
         let musicalKeyOrChord = new MusicalKeyOrChord(
             this.TonicOrRoot,
             this.Type,
             this.Name + " in " + positions[inversion],
             new MusicalAnnotation(this.Annotation.LeftBaseline, this.Annotation.LeftSuperscript, this.Annotation.MiddleSuperscript, this.Annotation.MiddleSubscript,
-                inversion == 0 ? "" : "/" + bassNote.NamePrettified),
+                inversion == 0 ? "" : "/" + this.NoteNames[inversion].NamePrettified),
             noteNames);
         musicalKeyOrChord.Inversion = inversion;
         musicalKeyOrChord.NoteNamesInRootPosition = this.NoteNames;
@@ -577,9 +576,9 @@ class RelatedMusicalKeysOrChords extends Array {
             [MusicalKeyOrChord.Types.DominantMinorNinthChord, new RelatedMusicalKeysOrChordsConfiguration(RelatedMusicalKeysOrChords.chordRoots, [MusicalInterval.MajorThird, MusicalInterval.MinorThird, MusicalInterval.MinorThird, MusicalInterval.MinorThird], false, "", "♭9", "", "dominant minor ninth chord")],
             [MusicalKeyOrChord.Types.MajorNinthChord, new RelatedMusicalKeysOrChordsConfiguration(RelatedMusicalKeysOrChords.chordRoots, [MusicalInterval.MajorThird, MusicalInterval.MinorThird, MusicalInterval.MajorThird, MusicalInterval.MinorThird], false, "Δ", "9", "", "major ninth chord")],
             [MusicalKeyOrChord.Types.MinorNinthChord, new RelatedMusicalKeysOrChordsConfiguration(RelatedMusicalKeysOrChords.chordRoots, [MusicalInterval.MinorThird, MusicalInterval.MajorThird, MusicalInterval.MinorThird, MusicalInterval.MajorThird], false, "m", "9", "", "minor ninth chord")],
-            [MusicalKeyOrChord.Types.DiminishedTriadChordLowered3rd, new RelatedMusicalKeysOrChordsConfiguration(RelatedMusicalKeysOrChords.chordRoots, [MusicalInterval.DiminishedThird, MusicalInterval.MajorThird], false, "o", "(♭3)", "", "diminished triad flat three chord (not correct, for the details please see the book!)")],
-            [MusicalKeyOrChord.Types.DiminishedSeventhChordLowered3rd, new RelatedMusicalKeysOrChordsConfiguration(RelatedMusicalKeysOrChords.chordRoots, [MusicalInterval.DiminishedThird, MusicalInterval.MajorThird, MusicalInterval.MinorThird], false, "o", "7(♭3)", "", "diminished seventh flat three chord (not correct, for the details please see the book!)")],
-            [MusicalKeyOrChord.Types.DominantSeventhChordLowered5th, new RelatedMusicalKeysOrChordsConfiguration(RelatedMusicalKeysOrChords.chordRoots, [MusicalInterval.MajorThird, MusicalInterval.DiminishedThird, MusicalInterval.MajorThird], false, "7", "(♭5)", "", "dominant seventh flat five chord")]]);
+            [MusicalKeyOrChord.Types.EnhDominantSeventhNo5Chord, new RelatedMusicalKeysOrChordsConfiguration(RelatedMusicalKeysOrChords.chordRoots, [MusicalInterval.MajorThird, MusicalInterval.AugmentedFourth], false, "7", "(no5)", "", "dominant seventh no 5 chord")],
+            [MusicalKeyOrChord.Types.EnhDominantSeventhChord, new RelatedMusicalKeysOrChordsConfiguration(RelatedMusicalKeysOrChords.chordRoots, [MusicalInterval.MajorThird, MusicalInterval.MinorThird, MusicalInterval.AugmentedSecond], false, "", "7", "", "dominant seventh chord")],
+            [MusicalKeyOrChord.Types.DominantSeventhLowered5thChord, new RelatedMusicalKeysOrChordsConfiguration(RelatedMusicalKeysOrChords.chordRoots, [MusicalInterval.MajorThird, MusicalInterval.DiminishedThird, MusicalInterval.MajorThird], false, "7", "(♭5)", "", "dominant seventh flat five chord")]]);
     };
 
     static generate() {
@@ -590,7 +589,13 @@ class RelatedMusicalKeysOrChords extends Array {
             let relatedMusicalKeysOrChords = new RelatedMusicalKeysOrChords();
             for (let tonicOrRoot of configuration.TonicsOrRoots) {
                 let name = tonicOrRoot.NamePrettified + " " + configuration.NameSuffix;
+                if (type == MusicalKeyOrChord.Types.EnhDominantSeventhChord || 
+                    type == MusicalKeyOrChord.Types.EnhDominantSeventhNo5Chord) 
+                    name = "enharmonically equivalent to " + name;
                 let annotationLeftBaseline = configuration.AnnotationLeftBaselineLowerCase ? tonicOrRoot.NamePrettified.toLowerCase() : tonicOrRoot.NamePrettified;
+                if (type == MusicalKeyOrChord.Types.EnhDominantSeventhChord || 
+                    type == MusicalKeyOrChord.Types.EnhDominantSeventhNo5Chord) 
+                    annotationLeftBaseline = "enh " + annotationLeftBaseline;
                 let noteNames = [];
                 let noteName = tonicOrRoot;
                 noteNames.push(noteName);
@@ -619,8 +624,8 @@ class RelatedMusicalKeysOrChords extends Array {
             if (!enharmonicEquivalence) musicalKeysOrChords = musicalKeysOrChords.filter(mkoc => mkoc.NoteNames.some(nn => nn.Name == searchedNoteName.Name));
             else musicalKeysOrChords = musicalKeysOrChords.filter(mkoc => mkoc.NoteNames.some(nn => nn.PitchClass == searchedNoteName.PitchClass));
         if (fullMatchOnly) musicalKeysOrChords = musicalKeysOrChords.filter(mkoc => mkoc.NoteNames.length == noteNames.length);
-        if (this[0].HasInversions() && bassNote != undefined) musicalKeysOrChords = musicalKeysOrChords.map(mkoc => mkoc.GetInversion(bassNote));
-        return musicalKeysOrChords;
+        if (this[0].HasInversions()) musicalKeysOrChords = musicalKeysOrChords.map(mkoc => mkoc.GetInversion(bassNote != undefined ? bassNote : mkoc.NoteNames[0]));
+        return musicalKeysOrChords; 
     }
 
     ToString() {
@@ -900,11 +905,11 @@ class RelatedMusicalHarmonies extends Array {
         RelatedMusicalHarmonies.cache.set(MusicalHarmony.Types.NeapolitanChord,
             RelatedMusicalHarmonies.generateNeapolitanChords());
         RelatedMusicalHarmonies.cache.set(MusicalHarmony.Types.ItalianSixthChord,
-            RelatedMusicalHarmonies.generateAugmentedSixthChords(MusicalHarmony.Types.ItalianSixthChord, MusicalInterval.AugmentedFourth, RelatedMusicalKeysOrChords.Get(MusicalKeyOrChord.Types.DiminishedTriadChordLowered3rd), "It", "Italian sixth chord"));
+            RelatedMusicalHarmonies.generateAugmentedSixthChords(MusicalHarmony.Types.ItalianSixthChord, MusicalInterval.MinorSixth, RelatedMusicalKeysOrChords.Get(MusicalKeyOrChord.Types.EnhDominantSeventhNo5Chord), "It", "Italian sixth chord"));
         RelatedMusicalHarmonies.cache.set(MusicalHarmony.Types.GermanSixthChord,
-            RelatedMusicalHarmonies.generateAugmentedSixthChords(MusicalHarmony.Types.GermanSixthChord, MusicalInterval.AugmentedFourth, RelatedMusicalKeysOrChords.Get(MusicalKeyOrChord.Types.DiminishedSeventhChordLowered3rd), "Gr", "German sixth chord"));
+            RelatedMusicalHarmonies.generateAugmentedSixthChords(MusicalHarmony.Types.GermanSixthChord, MusicalInterval.MinorSixth, RelatedMusicalKeysOrChords.Get(MusicalKeyOrChord.Types.EnhDominantSeventhChord), "Gr", "German sixth chord"));
         RelatedMusicalHarmonies.cache.set(MusicalHarmony.Types.FrenchSixthChord,
-            RelatedMusicalHarmonies.generateAugmentedSixthChords(MusicalHarmony.Types.FrenchSixthChord, MusicalInterval.MajorSecond, RelatedMusicalKeysOrChords.Get(MusicalKeyOrChord.Types.DominantSeventhChordLowered5th), "Fr", "French sixth chord"));
+            RelatedMusicalHarmonies.generateAugmentedSixthChords(MusicalHarmony.Types.FrenchSixthChord, MusicalInterval.MajorSecond, RelatedMusicalKeysOrChords.Get(MusicalKeyOrChord.Types.DominantSeventhLowered5thChord), "Fr", "French sixth chord"));
         RelatedMusicalHarmonies.cache.set(MusicalHarmony.Types.SecondaryDiatonicTriadChord,
             RelatedMusicalHarmonies.generateSecondaryChords(RelatedMusicalHarmonies.Get(MusicalHarmony.Types.DiatonicTriadChord)));
         RelatedMusicalHarmonies.cache.set(MusicalHarmony.Types.SecondaryDiatonicSeventhChord,
@@ -933,7 +938,7 @@ class RelatedMusicalHarmonies extends Array {
           else musicalHarmonies = musicalHarmonies.filter(mh => mh.MusicalChord.NoteNames.some(nn => nn.PitchClass == searchedNoteName.PitchClass));
         if (fullMatchOnly) musicalHarmonies = musicalHarmonies.filter(mh => mh.MusicalChord.NoteNames.length == noteNames.length);
         if (musicalKey != undefined) musicalHarmonies = musicalHarmonies.filter(mh => mh.MusicalKey.IsEqual(musicalKey));
-        if (this[0].MusicalChord.HasInversions() && bassNote != undefined) musicalHarmonies = musicalHarmonies.map(mh => mh.GetInversion(bassNote));
+        if (this[0].MusicalChord.HasInversions()) musicalHarmonies = musicalHarmonies.map(mh => mh.GetInversion(bassNote != undefined ? bassNote: mh.MusicalChord.NoteNames[0]));
         return musicalHarmonies;
     }
 
@@ -1079,9 +1084,9 @@ class FinderPage {
     renderFoundMusicalKeysOrChords() {
         for (let typeName in MusicalKeyOrChord.Types) {
             let type = MusicalKeyOrChord.Types[typeName];
-            if (type == MusicalKeyOrChord.Types.DiminishedTriadChordLowered3rd || 
-                type == MusicalKeyOrChord.Types.DiminishedSeventhChordLowered3rd || 
-                type == MusicalKeyOrChord.Types.DominantSeventhChordLowered5th) continue;
+            if (type == MusicalKeyOrChord.Types.EnhDominantSeventhNo5Chord || 
+                type == MusicalKeyOrChord.Types.EnhDominantSeventhChord || 
+                type == MusicalKeyOrChord.Types.DominantSeventhLowered5thChord) continue;
             let results = this.results.FoundMusicalKeysOrChords.get(type);
             let html = "";
             let index = 0;
