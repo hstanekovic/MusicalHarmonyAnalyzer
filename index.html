@@ -665,7 +665,7 @@ class MusicalHarmony {
         let annotationMiddleSubscriptsTriadChords = ["", "", "4"];
         let annotationMiddleSuperscriptsSeventhChords = ["7", "6", "4", "4"];
         let annotationMiddleSubscriptsSeventhChords = ["", "5", "3", "2"];
-        let inversion = bassNote != null ? this.MusicalChord.NoteNames.findIndex(nn => nn.IsEqual(bassNote)) : 0;
+        let inversion = bassNote != null ? this.MusicalChord.NoteNames.findIndex(nn => nn.PitchClass == bassNote.PitchClass) : 0;
         if (inversion < 0) return this;
         let name, annotationMiddleSuperscript, annotationMiddleSubscript;
         if (this.Type == MusicalHarmony.Types.ItalianSixthChord || this.Type == MusicalHarmony.Types.GermanSixthChord || this.Type == MusicalHarmony.Types.FrenchSixthChord ||
