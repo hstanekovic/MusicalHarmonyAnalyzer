@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 
 <head>
@@ -126,7 +127,7 @@ div.f {
     left: 42%;
 }
 
-div.FSharp {
+div.fSharp {
     left: 52%;
 }
 
@@ -1270,6 +1271,7 @@ class FinderPage {
 }
 
 let finderPage = new FinderPage();
+window.finderPage= finderPage;
 
 function onPianoKeyPress(event) {
     var pianoKeyIndex = event.currentTarget.id;
@@ -1363,18 +1365,18 @@ function onMusicalKeyOrChordSelected(event, type, index) {
     let resultDescriptionElement = document.getElementById("resultDescription");
     let width = window.innerWidth;
     if (event.clientX > width / 2) {
-        resultDescriptionElement.style.right = width - event.clientX - 30;
+        resultDescriptionElement.style.right = (width - event.clientX - 30) + "px";
         resultDescriptionElement.style.left = "";
     } else {
-        resultDescriptionElement.style.left = event.clientX - 10;
+        resultDescriptionElement.style.left = (event.clientX - 10) + "px";
         resultDescriptionElement.style.right = "";
     }
     let height = window.innerHeight;
     if (event.clientY > height / 2) {
-        resultDescriptionElement.style.bottom = height - event.clientY - 10;
+        resultDescriptionElement.style.bottom = (height - event.clientY - 10) + "px";
         resultDescriptionElement.style.top = "";
     } else {
-        resultDescriptionElement.style.top = event.clientY - 10;
+        resultDescriptionElement.style.top = (event.clientY - 10) + "px";
         resultDescriptionElement.style.bottom = "";
     }
     resultDescriptionElement.style.display = "block";
@@ -1394,19 +1396,19 @@ function onMusicalHarmonySelected(event, type, index) {
     let resultDescriptionElement = document.getElementById("resultDescription");
     let width = window.innerWidth;
     if (event.clientX > width / 2) {
-        resultDescriptionElement.style.right = width - event.clientX - 30;
+        resultDescriptionElement.style.right = (width - event.clientX - 30) + "px";
         resultDescriptionElement.style.left = "";
     }
     else {
-        resultDescriptionElement.style.left = event.clientX - 10;
+        resultDescriptionElement.style.left = (event.clientX - 10) + "px";
         resultDescriptionElement.style.right = "";
     }
     let height = window.innerHeight;
     if (event.clientY > height / 2) {
-        resultDescriptionElement.style.bottom = height - event.clientY - 10;
+        resultDescriptionElement.style.bottom = (height - event.clientY - 10) + "px";
         resultDescriptionElement.style.top = "";
     } else {
-        resultDescriptionElement.style.top = event.clientY - 10;
+        resultDescriptionElement.style.top = (event.clientY - 10) + "px";
         resultDescriptionElement.style.bottom = "";
     }
     resultDescriptionElement.style.display = "block";
@@ -1466,7 +1468,7 @@ function onLoad() {
         </div>
     </div>
     <table class="harmonyView clickable" title="Click to rotate note names" onclick="onRotateHarmonyView(event)">
-        <caption>v1.3</caption>
+        <caption>v1.4</caption>
         <tr>
             <td id="indicatorA">A</td>
         </tr>
