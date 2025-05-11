@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <style>
+    div.annotation {
+      font-size: 2.0em;
+    }
+
+    div.annotation span.block {
+      display: inline-block;
+    }
+
+    div.annotation span.block span.leftSuperscript {
+      position: relative;
+      display: block;
+      font-size: .6em;
+      top: -0.8em;
+    }
+
+    div.annotation span.block span.middleSuperscript {
+      position: relative;
+      display: block;
+      font-size: .6em;
+      line-height: 0.8;
+    }
+
+    div.annotation span.block span.middleSubscript {
+      position: relative;
+      display: block;
+      font-size: .6em;
+      line-height: 0.8;
+      top: .2em;
+    }
+  </style>
+</head>
+
+<body style="user-select: none;">
+  <input type="file" id="fileInput" accept=".mei" /> /
+  Panel width:
+  <button type="button" id="incrementPanelWidthButton" onClick="onIncrementPanelWidth()" disabled>&lt;</button>
+  <button type="button" id="decrementPanelWidthButton" onClick="onDecrementPanelWidth()" disabled>&gt;</button> /
+  <label for="fromMeasure">From measure:</label>
+  <button type="button" id="incrementFromMeasureButton" onClick="onIncrementFromMeasure()" disabled>+</button>
+  <input type="text" id="fromMeasure" style="width:4ch" onkeypress="onKeypress(event)" disabled>
+  <button type="button" id="decrementFromMeasureButton" onClick="onDecrementFromMeasure()"disabled>-</button>
+  <label for="totalMeasures">Total measures:</label>
+  <button type="button" id="incrementTotalMeasuresButton" onClick="onIncrementTotalMeasures()" disabled>+</button>
+  <input type="text" id="totalMeasures" style="width:4ch" onkeypress="onKeypress(event)" disabled>
+  <button type="button" id="decrementTotalMeasuresButton" onclick="onDecrementTotalMeasures()" disabled>-</button>
+  <label for="scale">Score scale:</label>
+  <button type="button" id="incrementScaleButton" onclick="onIncrementScale()" disabled>+</button>
+  <input type="text" id="scale" style="width:4ch" onkeypress="onKeypress(event)" disabled>
+  <button type="button" id="decrementScaleButton" onclick="onDecrementScale()" disabled>-</button> /
+  <button type="button" id="clearSelectionButton" onclick="onClearSelection()" disabled>Clear selection</button>
+  <div id="score" style="margin-top: 3em;"></div>
+  <div id="chordAnnotation" class='annotation' style="position: absolute; left: 0px; top: 0px;"></div>
+  <div id="harmonyAnnotation" class='annotation' style="position: absolute; left: 0px; top: 0px;"></div>
+  <div style="position: absolute; top: 5vh; right: 5px; background-color: white;">
+    <iframe id="tool" src="http://localhost/TEST/index.html" style="border:5px ridge gray; width: 20vw; height: 90vh;">
+    </iframe>
+  </div>
+</body>
+
+<script src="verovio-toolkit-wasm.js"></script>
+<script>
+  "use strict";
+  let panelWidth = null;
+  let fromMeasure = null;
+  let totalMeasures = null;
+  let scale = null;
+  let tk = null;
+  let meiXML = null;
+  let meiDoc = null;
+  let selectedNoteHeadElements = [];
+  let selectedPitches = [];
+  let selectedPitchClasses = [];
+  let bassNote = null;
+  let selectBoxElement = null;
+  let systemBoundingBox = null;
+  let nonChordTonesAnnotations = [];
+  let annotationsShown = false;
+
+  function setFileInput() {
+    const fileInputElement = document.getElementById('fileInput');
+    fileInputElement.addEventListener('change',
+      function (event) {
+        if (annotationsShown == true) getToolContentWindow().onResultDescriptionHide(null);
+        const file = event.target.files[0];
+        if (!file) return;
+        const fileReader = new FileReader();
+        fileReader.onload = function (event) {
+          meiXML = event.target.result;
+          //console.log(meiXML);
+          meiDoc = new DOMParser().parseFromString(meiXML, "application/xml");
+          initUserInterfaceState();
+          renderScore();
+        };
+        fileReader.readAsText(file);
+        enableControls();
+      });
+  }
+
+  function enableControls() {
+    const ids = ["incrementPanelWidthButton", "decrementPanelWidthButton", 
+                 "incrementFromMeasureButton", "fromMeasure", "decrementFromMeasureButton", 
+                 "incrementTotalMeasuresButton", "totalMeasures", "decrementTotalMeasuresButton",
+                 "incrementScaleButton", "scale", "decrementScaleButton",
+                 "clearSelectionButton"];
+    for (let id of ids) document.getElementById(id).disabled = false;
+  }
+
+  function getToolContentWindow() {
+    const toolElement = document.getElementById("tool");
+    const contentWindow = toolElement.contentWindow;
+    return contentWindow.window;    
+  }
+  
+  function setCallback() {
+    getToolContentWindow().callback = callback;
+  }
+
+  function initUserInterfaceState() {
+    panelWidth = 20;
+    fromMeasure = 1;
+    totalMeasures = 4;
+    scale = 80;
+  }
+
+  function refreshControlValues() {
+    const fromMeasureElement = document.getElementById("fromMeasure");
+    fromMeasureElement.value = fromMeasure;
+    const totalMeasuresElement = document.getElementById("totalMeasures");
+    totalMeasuresElement.value = totalMeasures;
+    const scaleElement = document.getElementById("scale");
+    scaleElement.value = scale;
+  }
+
+  function applyControlValues() {
+    const toolElement = document.getElementById("tool");
+    toolElement.style['width'] = panelWidth + 'vw';
+    const fromMeasureElement = document.getElementById("fromMeasure");
+    const fromMeasureValue = parseInt(fromMeasureElement.value);
+    if (!isNaN(fromMeasureValue)) fromMeasure = fromMeasureValue;
+    const totalMeasuresElement = document.getElementById("totalMeasures");
+    const totalMeasuresValue = parseInt(totalMeasuresElement.value);
+    if (!isNaN(totalMeasuresValue)) totalMeasures = totalMeasuresValue;
+    const scaleElement = document.getElementById("scale");
+    const scaleElementValue = parseInt(scaleElement.value);
+    if (!isNaN(scaleElementValue)) scale = scaleElementValue;
+    tk.setOptions({
+      scale: scale,
+      breaks: 'none',
+      preserveAnalyticalMarkup: true
+    });
+    const toMeasure = fromMeasure + totalMeasures - 1;
+    tk.select({ measureRange: fromMeasure + "-" + toMeasure });
+  }
+
+  function makeNoteHeadsClickable() {
+    const scoreElement = document.getElementById("score");
+    const noteHeadElements = scoreElement.querySelectorAll("g.notehead");
+    noteHeadElements.forEach((noteHeadElement) => {
+      const noteElement = noteHeadElement.parentElement;
+      const notheadBoundingBox = noteHeadElement.getBBox();
+      const clickableRectangle = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      clickableRectangle.setAttribute("x", notheadBoundingBox.x);
+      clickableRectangle.setAttribute("y", notheadBoundingBox.y);
+      clickableRectangle.setAttribute("width", notheadBoundingBox.width);
+      clickableRectangle.setAttribute("height", notheadBoundingBox.height);
+      clickableRectangle.setAttribute("fill", "transparent");
+      clickableRectangle.setAttribute("data-target", noteElement.id);
+      clickableRectangle.addEventListener("click", (event) => { onNoteHeadClick(event); });
+      noteElement.appendChild(clickableRectangle);
+    });
+  }
+
+  function determineSystemBoundingBox() {
+    const scoreElement = document.getElementById("score");
+    const systemElements = scoreElement.querySelectorAll("g.system");
+    systemBoundingBox = systemElements[0].getBBox();
+  }
+
+  function onNoteHeadClick(event) {
+    if (annotationsShown == true) { getToolContentWindow().onResultDescriptionHide(null); return; }
+    let noteElementId = event.target.getAttribute("data-target");
+    noteElementId = cssEscape(noteElementId);
+    const scoreElement = document.getElementById("score");
+    const noteElement = scoreElement.querySelector("#" + noteElementId);
+    const noteHeadElement = noteElement.querySelector("g.notehead");
+    let isAdded;
+    if (!selectedNoteHeadElements.includes(noteHeadElement)) {
+      selectedNoteHeadElements.push(noteHeadElement);
+      isAdded = true;
+    }
+    else {
+      removeArrayElement(selectedNoteHeadElements, noteHeadElement);
+      isAdded = false;
+    }
+    if (isAdded) noteHeadElementHighlight(noteHeadElement);
+    else noteHeadElementRemoveHighlight(noteHeadElement);
+    updateSelectedPitches();
+    updateSelectedPitchClasses();
+    toolPressPianoKeys(selectedPitchClasses);
+    toolSelectBassNote();
+    createOrUpdateSelectBoxElement();
+  }
+
+  function cssEscape(selector) {
+    const characters = "!#$%&'()*+,-./:;<=>?@[\]^`{|}~" + '"';
+    for (let c of characters)
+      selector = selector.replaceAll(c, "\\" + c);
+    return selector;
+  }
+
+  function noteHeadElementHighlight(noteHeadElement) {
+    noteHeadElement.style.fill = "deepskyblue";
+    noteHeadElement.style.stroke = "deepskyblue";
+  }
+
+  function noteHeadElementRemoveHighlight(noteHeadElement) {
+    noteHeadElement.style.fill = "black";
+    noteHeadElement.style.stroke = "black";
+  }
+
+  function updateSelectedPitches() {
+    selectedPitches = new Array();
+    let minPitchInt = Number.POSITIVE_INFINITY;
+    let lowestPitch = null;
+    for (let noteHeadElement of selectedNoteHeadElements) {
+      const pitch = determinePitch(noteHeadElement);
+      if (!selectedPitches.includes(pitch)) {
+        selectedPitches.push(pitch);
+        const pitchInt = getPitchInt(pitch);
+        if (pitchInt < minPitchInt) {
+          minPitchInt = pitchInt;
+          lowestPitch = pitch;
+        }
+      }
+    }
+    if (lowestPitch != null) bassNote = getPitchClass(lowestPitch);
+  }
+
+  function updateSelectedPitchClasses() {
+    selectedPitchClasses = new Array();
+    for (let pitch of selectedPitches) {
+      const pitchClass = getPitchClass(pitch);
+      if (!selectedPitchClasses.includes(pitchClass)) selectedPitchClasses.push(pitchClass);
+    }
+  }
+
+  function getPitchClass(pitch) {
+    const pitchClass = pitch.substring(0, pitch.length - 1);
+    return pitchClass;
+  }
+
+  function getPitchInt(pitch) {
+    const noteName = pitch[0];
+    const octave = parseInt(pitch[pitch.length - 1]);
+    const accidental = pitch.substring(1, pitch.length - 1);
+    const noteNames = ["C", "D", "E", "F", "G", "A", "B"];
+    const noteNamesInt = [0, 2, 4, 5, 7, 9, 11];
+    const noteNameInt = noteNamesInt[noteNames.indexOf(noteName)];
+    const accidentals = ["bb", "b", "", "#", "x"];
+    const accidentalInt = accidentals.indexOf(accidental) - 2;
+    return octave * 12 + noteNameInt + accidentalInt;
+  }
+
+  function getNoteMeiElement(id) {
+    const elements = meiDoc.getElementsByTagName("note");
+    for (let element of elements)
+      if (element.getAttribute("xml:id") === id) return element;
+    return null;
+  }
+
+  function getAccidentalMeiElement(parentMeiElement) {
+    const meiElements = parentMeiElement.childNodes;
+    for (let meiElement of meiElements)
+      if (meiElement.nodeName == "accid") return meiElement;
+    return null;
+  }
+
+  function determinePitch(noteHeadElement) {
+    const noteElement = noteHeadElement.parentElement;
+    const noteElementId = noteElement.id;
+    const noteMeiElement = getNoteMeiElement(noteElementId);
+    const pitch = determinePitchMei(noteMeiElement);
+    return pitch;
+  }
+
+  function determinePitchMei(meiElement) {
+    const pname = meiElement.getAttribute("pname");
+    const oct = meiElement.getAttribute("oct");
+    let accidental = null;
+    let accidentalMeiElement = null;
+    accidentalMeiElement = getAccidentalMeiElement(meiElement);
+    if (accidentalMeiElement != null) accidental = getAccidentalFromAttributesMei(accidentalMeiElement);
+    else accidental = getAccidentalFromAttributesMei(meiElement);
+    let accidentalSymbol = "";
+    if (accidental == "ff") accidentalSymbol = "bb";
+    if (accidental == "f" || accidental == "nf") accidentalSymbol = "b";
+    if (accidental == "s" || accidental == "ns") accidentalSymbol = "#";
+    if (accidental == "ss" || accidental == "x") accidentalSymbol = "x";
+    const pitch = pname.toUpperCase() + accidentalSymbol + oct;
+    return pitch;
+  }
+
+  function getAccidentalFromAttributesMei(meiElement) {
+    const accid = meiElement.getAttribute("accid");
+    const accidGes = meiElement.getAttribute("accid.ges");
+    return accidGes != null ? accidGes : accid;
+  }
+
+  function toolPressPianoKeys(selectedPitchClasses) {
+    const finderPage = getToolContentWindow().finderPage;
+    finderPage.OnReleaseAllPianoKeys();
+    selectedPitchClasses.forEach((pitchClass) => {
+      const pitchClasses = ["C", "D", "E", "F", "G", "A", "B",
+        "C#", "D#", "E#", "F#", "G#", "A#", "B#",
+        "Cb", "Db", "Eb", "Fb", "Gb", "Ab", "Bb",
+        "Cx", "Dx", "Ex", "Fx", "Gx", "Ax", "Bx",
+        "Cbb", "Dbb", "Ebb", "Fbb", "Gbb", "Abb", "Bbb"];
+      const index = pitchClasses.indexOf(pitchClass);
+      const pianoKeyIndexes = [0, 2, 4, 5, 7, 9, 11,
+        1, 3, 5, 6, 8, 10, 0,
+        11, 1, 3, 4, 6, 8, 10,
+        2, 4, 6, 7, 9, 11, 1,
+        10, 0, 2, 3, 5, 7, 9];
+      const pianoKeyIndex = pianoKeyIndexes[index];
+      const pianoKeyRepeats = [1, 1, 1, 1, 1, 1, 1,
+        1, 1, 2, 1, 1, 1, 2,
+        2, 2, 2, 3, 2, 2, 2,
+        2, 2, 3, 2, 2, 3, 3,
+        3, 3, 3, 3, 3, 3, 3];
+      const pianoKeyRepeat = pianoKeyRepeats[index];
+      for (let i = 0; i < pianoKeyRepeat; i++) finderPage.OnPianoKeyPress(pianoKeyIndex, false);
+    });
+  }
+
+  function toolSelectBassNote() {
+    const finderPage = getToolContentWindow().finderPage;
+    finderPage.SelectBassNote(bassNote);
+  }
+
+  function createOrUpdateSelectBoxElement() {
+    let minX = null, maxX = null;
+    selectedNoteHeadElements.forEach((noteHeadElement) => {
+      const noteHeadElementBoundingBox = noteHeadElement.getBBox();
+      const boxX = noteHeadElementBoundingBox.x;
+      const boxWidth = noteHeadElementBoundingBox.width;
+      if (minX == null || boxX < minX) minX = boxX;
+      if (maxX == null || boxX + boxWidth > maxX) maxX = boxX + boxWidth;
+    });
+    if (minX == null || maxX == null) { minX = 0; maxX = 0; }
+    if (selectBoxElement == null) {
+      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      rect.setAttribute("fill", "silver");
+      rect.setAttribute("opacity", "0.5");
+      const scoreElement = document.getElementById("score");
+      const systemElement = scoreElement.querySelectorAll("g.system")[0];
+      systemElement.insertBefore(rect, systemElement.firstChild);
+      selectBoxElement = rect;
+    }
+    selectBoxElement.setAttribute("x", minX);
+    selectBoxElement.setAttribute("y", systemBoundingBox.y);
+    selectBoxElement.setAttribute("width", maxX - minX);
+    selectBoxElement.setAttribute("height", systemBoundingBox.height);
+  }
+
+  function createSvg() {
+    const svg = tk.renderData(meiXML, {});
+    const scoreElement = document.getElementById("score");
+    scoreElement.innerHTML = svg;
+  }
+
+  function renderScore() {
+    refreshControlValues();
+    applyControlValues();
+    createSvg();
+    makeNoteHeadsClickable();
+    determineSystemBoundingBox();
+    clearSelection();
+    toolPressPianoKeys([]);
+  }
+
+  function clearSelection() {
+    selectedNoteHeadElements = new Array();
+    selectedPitches = new Array();
+    selectedPitchClasses = new Array();
+    selectBoxElement = null;
+  }
+
+  function constraintControlValues() {
+    if (panelWidth < 20) panelWidth = 20;
+    if (fromMeasure < 1) fromMeasure = 1;
+    if (totalMeasures < 1) totalMeasures = 1;
+    if (totalMeasures > 24) totalMeasures = 24;
+    if (scale < 20) scale = 20;
+    if (scale > 200) scale = 200;
+    console.log(panelWidth);
+  }
+
+  function onIncrementPanelWidth() {
+    panelWidth = panelWidth + 5;
+    constraintControlValues();
+    applyControlValues();
+  }
+
+  function onDecrementPanelWidth() {
+    panelWidth = panelWidth - 5;
+    constraintControlValues();
+    applyControlValues();
+  }
+
+  function onIncrementFromMeasure() {
+    if (annotationsShown == true) getToolContentWindow().onResultDescriptionHide(null);
+    fromMeasure = fromMeasure + 1;
+    constraintControlValues();
+    refreshControlValues();
+    renderScore();
+  }
+
+  function onDecrementFromMeasure() {
+    if (annotationsShown == true) getToolContentWindow().onResultDescriptionHide(null);
+    fromMeasure = fromMeasure - 1;
+    constraintControlValues();
+    refreshControlValues();
+    renderScore();
+  }
+
+  function onIncrementTotalMeasures() {
+    if (annotationsShown == true) getToolContentWindow().onResultDescriptionHide(null);
+    totalMeasures = totalMeasures + 1;
+    constraintControlValues();
+    refreshControlValues();
+    renderScore();
+  }
+
+  function onDecrementTotalMeasures() {
+    if (annotationsShown == true) getToolContentWindow().onResultDescriptionHide(null);
+    totalMeasures = totalMeasures - 1;
+    constraintControlValues();
+    refreshControlValues();
+    renderScore();
+  }
+
+  function onIncrementScale() {
+    if (annotationsShown == true) getToolContentWindow().onResultDescriptionHide(null);
+    scale = scale + 10;
+    constraintControlValues();
+    refreshControlValues();
+    renderScore();
+  }
+
+  function onDecrementScale() {
+    if (annotationsShown == true) getToolContentWindow().onResultDescriptionHide(null);
+    scale = scale - 10;
+    constraintControlValues();
+    refreshControlValues();
+    renderScore();
+  }
+
+  function onKeypress(event) {
+    if (event.key === "Enter") {
+      if (annotationsShown == true) getToolContentWindow().onResultDescriptionHide(null);
+      renderScore();
+    }
+  }
+
+  function onClearSelection() {
+    if (annotationsShown == true) getToolContentWindow().onResultDescriptionHide(null);
+    clearSelection();
+    toolPressPianoKeys([]);
+    renderScore();
+  }
+
+  function removeArrayElement(array, element) {
+    var index = array.indexOf(element);
+    if (index > -1) array.splice(index, 1);
+  }
+
+  function callback(result) {
+    if (result == null) hideAnnotations();
+    else showAnnotations(result);
+  }
+
+  function showAnnotations(result) {
+    annotationsShown = true;
+    annotateHarmony(result);
+    annotateChord(result);
+    annotateNonChordTones(result);
+    hideSelection();
+  }
+
+  function hideAnnotations() {
+    annotationsShown = false;
+    const harmonyAnnotationElement = document.getElementById("harmonyAnnotation");
+    harmonyAnnotationElement.innerHTML = "";
+    const chordAnnotationElement = document.getElementById("chordAnnotation");
+    chordAnnotationElement.innerHTML = "";
+    for (let nonChordToneAnnotation of nonChordTonesAnnotations) nonChordToneAnnotation.remove();
+    showSelection();
+  }
+
+  function annotateHarmony(result) {
+    const htmlText = "<span>" + result.Annotation.Render() + "</span>";
+    const harmonyAnnotationElement = document.getElementById("harmonyAnnotation");
+    harmonyAnnotationElement.innerHTML = htmlText;
+    selectBoxElement.style.display = "inline"; // TO BE ABLE TO GET BOUNDING CLIENT RECTANGLE
+    const selectBoxElementBoundingClientRectangle = selectBoxElement.getBoundingClientRect();
+    harmonyAnnotationElement.style.left = selectBoxElementBoundingClientRectangle.x + "px";
+    harmonyAnnotationElement.style.top = (selectBoxElementBoundingClientRectangle.y + selectBoxElementBoundingClientRectangle.height) + "px";
+  }
+
+  function annotateChord(result) {
+    const htmlText = "<span>" + result.MusicalChord.Annotation.Render() + "</span>";
+    const chordAnnotationElement = document.getElementById("chordAnnotation");
+    chordAnnotationElement.innerHTML = htmlText;
+    const computedStyle = window.getComputedStyle(chordAnnotationElement);
+    const heightString = computedStyle.getPropertyValue("height");
+    const height = parseFloat(heightString.substring(0, heightString.length - 2));
+    const selectBoxElementBoundingClientRectangle = selectBoxElement.getBoundingClientRect();
+    chordAnnotationElement.style.left = selectBoxElementBoundingClientRectangle.x + "px";
+    chordAnnotationElement.style.top = (selectBoxElementBoundingClientRectangle.y - height) + "px";
+  }
+
+  function annotateNonChordTones(result) {
+    nonChordTonesAnnotations = [];
+    const noteNames = [];
+    for (let noteName of result.MusicalChord.NoteNames) noteNames.push(noteName.Name);
+    const noteHeadElements = selectBoxElementFindNotheadElements();
+    for (let noteHeadElement of noteHeadElements) {
+      const pitch = determinePitch(noteHeadElement);
+      const pitchClass = getPitchClass(pitch);
+      if (noteNames.indexOf(pitchClass) < 0) {
+        const nonChordToneAnnotationGeometry = determineNonChordToneAnnotationGeometry(noteHeadElement);
+        const nonChordToneEllipse = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+        nonChordToneEllipse.setAttribute("cx", nonChordToneAnnotationGeometry.center.x);
+        nonChordToneEllipse.setAttribute("cy", nonChordToneAnnotationGeometry.center.y);
+        nonChordToneEllipse.setAttribute("rx", nonChordToneAnnotationGeometry.radius.x);
+        nonChordToneEllipse.setAttribute("ry", nonChordToneAnnotationGeometry.radius.y);
+        nonChordToneEllipse.setAttribute("stroke", "red");
+        nonChordToneEllipse.setAttribute("fill", "transparent");
+        nonChordToneEllipse.setAttribute("stroke-width", nonChordToneAnnotationGeometry.radius.x / 5);
+        noteHeadElement.insertAdjacentElement("afterend", nonChordToneEllipse);
+        nonChordTonesAnnotations.push(nonChordToneEllipse);
+      }
+    }
+  }
+
+  function showSelection() {
+    selectBoxElement.style.display = "inline";
+    for (let noteHeadElement of selectedNoteHeadElements) noteHeadElementHighlight(noteHeadElement);
+  }
+
+  function hideSelection() {
+    selectBoxElement.style.display = "none";
+    for (let noteHeadElement of selectedNoteHeadElements) noteHeadElementRemoveHighlight(noteHeadElement);
+  }
+
+  function selectBoxElementFindNotheadElements() {
+    const foundNoteHeadElements = [];
+    const selectBoxElementMinX = parseFloat(selectBoxElement.getAttribute("x"));
+    const selectBoxElementMinY = parseFloat(selectBoxElement.getAttribute("y"));
+    const selectBoxElementMaxX = selectBoxElementMinX + parseFloat(selectBoxElement.getAttribute("width")) - 1;
+    const selectBoxElementMaxY = selectBoxElementMinY + parseFloat(selectBoxElement.getAttribute("height")) - 1;
+    const scoreElement = document.getElementById("score");
+    const noteHeadElements = scoreElement.querySelectorAll("g.notehead");
+    for (let noteHeadElement of noteHeadElements) {
+      const noteHeadElementBoundingBox = noteHeadElement.getBBox();
+      if (noteHeadElementBoundingBox.x >= selectBoxElementMinX && noteHeadElementBoundingBox.x <= selectBoxElementMaxX &&
+        noteHeadElementBoundingBox.y >= selectBoxElementMinY && noteHeadElementBoundingBox.y <= selectBoxElementMaxY)
+        foundNoteHeadElements.push(noteHeadElement);
+    }
+    return foundNoteHeadElements;
+  }
+
+  function determineNonChordToneAnnotationGeometry(noteHeadElement) {
+    const noteHeadElementBoundingBox = noteHeadElement.getBBox();
+    const center = { x: noteHeadElementBoundingBox.x + noteHeadElementBoundingBox.width / 2 - 1, y: noteHeadElementBoundingBox.y + noteHeadElementBoundingBox.height / 2 - 1 };
+    const radius = { x: noteHeadElementBoundingBox.width / 2 * 1.3, y: noteHeadElementBoundingBox.height / 2 * 1.3 };
+    return { center: center, radius: radius };
+  }
+
+  setFileInput();
+  setCallback();
+  verovio.module.onRuntimeInitialized = () => { tk = new verovio.toolkit(); };
+</script>
+
+</html>
