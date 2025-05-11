@@ -467,8 +467,17 @@ v1.1
   function onKeypress(event) {
     if (event.key === "Enter") {
       if (annotationsShown == true) getToolContentWindow().onResultDescriptionHide(null);
+      const fromMeasureElement = document.getElementById("fromMeasure");
+      fromMeasure = fromMeasureElement.value;
+      const totalMeasuresElement = document.getElementById("totalMeasures");
+      totalMeasures = totalMeasuresElement.value;
+      const scaleElement = document.getElementById("scale");
+      scale = scaleElement.value; 
+      constraintControlValues();
+      refreshControlValues();
       renderScore();
     }
+    if (!/[0-9]/.test(event.key)) event.preventDefault();
   }
 
   function onClearSelection() {
