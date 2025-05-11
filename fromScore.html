@@ -2,6 +2,9 @@
 <html>
 
 <head>
+    <title>Musical Harmony Analyzer - from Score</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     div.annotation {
       font-size: 2.0em;
@@ -53,11 +56,12 @@
   <input type="text" id="scale" style="width:4ch" onkeypress="onKeypress(event)" disabled>
   <button type="button" id="decrementScaleButton" onclick="onDecrementScale()" disabled>-</button> /
   <button type="button" id="clearSelectionButton" onclick="onClearSelection()" disabled>Clear selection</button>
+v1.1
   <div id="score" style="margin-top: 3em;"></div>
   <div id="chordAnnotation" class='annotation' style="position: absolute; left: 0px; top: 0px;"></div>
   <div id="harmonyAnnotation" class='annotation' style="position: absolute; left: 0px; top: 0px;"></div>
   <div style="position: absolute; top: 5vh; right: 5px; background-color: white;">
-    <iframe id="tool" src="http://localhost/TEST/index.html" style="border:5px ridge gray; width: 20vw; height: 90vh;">
+    <iframe id="tool" src="index.html" style="border:5px ridge gray; width: 20vw; height: 90vh;">
     </iframe>
   </div>
 </body>
