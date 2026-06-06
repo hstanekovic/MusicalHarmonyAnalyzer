@@ -1274,6 +1274,7 @@
 
         let finderPage = new FinderPage();
         window.finderPage = finderPage;
+        window.harmonySelected = null;
 
         function onPianoKeyPress(event) {
             var pianoKeyIndex = event.currentTarget.id;
@@ -1386,6 +1387,7 @@
 
         function onMusicalHarmonySelected(event, type, index) {
             let result = finderPage.results.FoundMusicalHarmonies.get(type)[index];
+            window.harmonySelected = result;
             let html = "<div class='annotation'><span>" + result.Annotation.Render() + "</span></div>" + result.Name + "<hr>";
             html += "<div class='annotation'><span>" + result.MusicalChord.Annotation.Render() + "</span></div>" + result.MusicalChord.Name;
             let resultNameElement = document.getElementById("resultName");
@@ -1418,6 +1420,7 @@
         }
 
         function onResultDescriptionHide(event) {
+            window.harmonySelected = null;
             finderPage.OnResultDescriptionHide();
             if (event != null) event.stopPropagation();
             if (window.callback) window.callback(null);
