@@ -1387,7 +1387,7 @@
 
         function onMusicalHarmonySelected(event, type, index) {
             let result = finderPage.results.FoundMusicalHarmonies.get(type)[index];
-            window.harmonySelected = result;
+            window.harmonySelected = writeResult(result);
             let html = "<div class='annotation'><span>" + result.Annotation.Render() + "</span></div>" + result.Name + "<hr>";
             html += "<div class='annotation'><span>" + result.MusicalChord.Annotation.Render() + "</span></div>" + result.MusicalChord.Name;
             let resultNameElement = document.getElementById("resultName");
@@ -1417,6 +1417,25 @@
             resultDescriptionElement.style.display = "block";
             event.stopPropagation();
             if (window.callback) window.callback(result);
+        }
+
+        function writeResult(result) {
+          var resultClone = JSON.parse(JSON.stringify(result));
+          resultClone.MusicalKey.Tonic = { Name: result.MusicalKey.TonicOrRoot.Name, PitchClass: result.MusicalKey.TonicOrRoot.PitchClass };   
+          delete resultClone.MusicalKey.TonicOrRoot;
+          delete resultClone.MusicalKey.NoteNames;   
+          resultClone.MusicalChord.Root = { Name: result.MusicalChord.TonicOrRoot.Name, PitchClass: result.MusicalChord.TonicOrRoot.PitchClass };
+          delete resultClone.MusicalChord.TonicOrRoot;
+          resultClone.MusicalChord.NoteNames = [];
+          result.MusicalChord.NoteNames.forEach((nn) => { resultClone.MusicalChord.NoteNames.push({ Name: nn.Name, PitchClass: nn.PitchClass }) }); 
+          delete resultClone.MusicalChord.NoteNamesInRootPosition; 
+          var musicalChordClone = JSON.parse(JSON.stringify(resultClone.MusicalChord));
+          delete resultClone.MusicalChord;
+          resultClone.Chord = musicalChordClone;
+          var musicalKeyClone = JSON.parse(JSON.stringify(resultClone.MusicalKey));
+          delete resultClone.MusicalKey;
+          resultClone.Key = musicalKeyClone;
+          return resultClone;
         }
 
         function onResultDescriptionHide(event) {
