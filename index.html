@@ -1274,7 +1274,8 @@
 
         let finderPage = new FinderPage();
         window.finderPage = finderPage;
-        window.harmonySelected = null;
+        window.musicalHarmonySelected = null;
+        window.musicalChordSelected = null;
 
         function onPianoKeyPress(event) {
             var pianoKeyIndex = event.currentTarget.id;
@@ -1357,6 +1358,9 @@
 
         function onMusicalKeyOrChordSelected(event, type, index) {
             let result = finderPage.results.FoundMusicalKeysOrChords.get(type)[index];
+            window.musicalHarmonySelected = null;
+            if (result.Type < 5) window.musicalChordSelected = null;
+            else window.musicalChordSelected = writeResultMusicalChord(result);
             let html = "<div class='annotation'><span>" + result.Annotation.Render() + "</span></div>" + result.Name;
             let resultNameElement = document.getElementById("resultName");
             resultNameElement.innerHTML = html;
@@ -1387,7 +1391,8 @@
 
         function onMusicalHarmonySelected(event, type, index) {
             let result = finderPage.results.FoundMusicalHarmonies.get(type)[index];
-            window.harmonySelected = writeResult(result);
+            window.musicalChordSelected = null;
+            window.musicalHarmonySelected = writeResultMusicalHarmony(result);
             let html = "<div class='annotation'><span>" + result.Annotation.Render() + "</span></div>" + result.Name + "<hr>";
             html += "<div class='annotation'><span>" + result.MusicalChord.Annotation.Render() + "</span></div>" + result.MusicalChord.Name;
             let resultNameElement = document.getElementById("resultName");
@@ -1419,27 +1424,36 @@
             if (window.callback) window.callback(result);
         }
 
-        function writeResult(result) {
+        function writeResultMusicalKey(result) {
           var resultClone = JSON.parse(JSON.stringify(result));
-          resultClone.MusicalKey.Tonic = { Name: result.MusicalKey.TonicOrRoot.Name, PitchClass: result.MusicalKey.TonicOrRoot.PitchClass };   
-          delete resultClone.MusicalKey.TonicOrRoot;
-          delete resultClone.MusicalKey.NoteNames;   
-          resultClone.MusicalChord.Root = { Name: result.MusicalChord.TonicOrRoot.Name, PitchClass: result.MusicalChord.TonicOrRoot.PitchClass };
-          delete resultClone.MusicalChord.TonicOrRoot;
-          resultClone.MusicalChord.NoteNames = [];
-          result.MusicalChord.NoteNames.forEach((nn) => { resultClone.MusicalChord.NoteNames.push({ Name: nn.Name, PitchClass: nn.PitchClass }) }); 
-          delete resultClone.MusicalChord.NoteNamesInRootPosition; 
-          var musicalChordClone = JSON.parse(JSON.stringify(resultClone.MusicalChord));
-          delete resultClone.MusicalChord;
-          resultClone.Chord = musicalChordClone;
-          var musicalKeyClone = JSON.parse(JSON.stringify(resultClone.MusicalKey));
+          resultClone.Tonic = { Name: result.TonicOrRoot.Name, PitchClass: result.TonicOrRoot.PitchClass };  
+          delete resultClone.TonicOrRoot;
+          delete resultClone.NoteNames;  
+          return resultClone;
+        }
+
+        function writeResultMusicalChord(result) {
+          var resultClone = JSON.parse(JSON.stringify(result));    
+          resultClone.Root = { Name: result.TonicOrRoot.Name, PitchClass: result.TonicOrRoot.PitchClass };
+          delete resultClone.TonicOrRoot;
+          resultClone.NoteNames = [];
+          result.NoteNames.forEach((nn) => { resultClone.NoteNames.push({ Name: nn.Name, PitchClass: nn.PitchClass }) }); 
+          delete resultClone.NoteNamesInRootPosition;
+          return resultClone;
+        }
+
+        function writeResultMusicalHarmony(result) {
+          var resultClone = JSON.parse(JSON.stringify(result));
+          resultClone.Key = writeResultMusicalKey(result.MusicalKey);
           delete resultClone.MusicalKey;
-          resultClone.Key = musicalKeyClone;
+          resultClone.Chord = writeResultMusicalChord(result.MusicalChord);
+          delete resultClone.MusicalChord;
           return resultClone;
         }
 
         function onResultDescriptionHide(event) {
-            window.harmonySelected = null;
+            window.musicalHarmonySelected = null;
+            window.musicalChordSelected = null;
             finderPage.OnResultDescriptionHide();
             if (event != null) event.stopPropagation();
             if (window.callback) window.callback(null);
